@@ -76,6 +76,7 @@ static BOOL _alwaysUseMainBundle = NO;
 @property (nonatomic, copy) NSString *alertCancelTitle;
 @property (nonatomic, copy) NSString *alertRateTitle;
 @property (nonatomic, copy) NSString *alertRateLaterTitle;
+@property (nonatomic, strong) id<AppiraterCustomRatingAlertDelegate> customRatingAlert;
 - (BOOL)connectedToNetwork;
 + (Appirater*)sharedInstance;
 - (void)showPromptWithChecks:(BOOL)withChecks
@@ -157,6 +158,9 @@ static BOOL _alwaysUseMainBundle = NO;
 }
 + (void)setAlwaysUseMainBundle:(BOOL)alwaysUseMainBundle {
     _alwaysUseMainBundle = alwaysUseMainBundle;
+}
++ (void)setCustomRatingAlert:(id<AppiraterCustomRatingAlertDelegate>)alert {
+    [self sharedInstance].customRatingAlert = alert;
 }
 
 + (NSBundle *)bundle
@@ -269,6 +273,24 @@ static BOOL _alwaysUseMainBundle = NO;
 }
 
 - (void)showRatingAlert:(BOOL)displayRateLaterButton {
+    if (self.customRatingAlert) {
+        [self showCustomRatingAlert:displayRateLaterButton];
+    } else {
+        [self showDefaultRatingAlert:displayRateLaterButton];
+    }
+
+    id <AppiraterDelegate> delegate = _delegate;
+    if (delegate && [delegate respondsToSelector:@selector(appiraterDidDisplayAlert:)]) {
+             [delegate appiraterDidDisplayAlert:self];
+    }
+}
+
+- (void)showRatingAlert
+{
+  [self showRatingAlert:true];
+}
+
+- (void)showDefaultRatingAlert:(BOOL)displayRateLaterButton {
   UIAlertView *alertView = nil;
   if (displayRateLaterButton) {
   	alertView = [[UIAlertView alloc] initWithTitle:self.alertTitle
@@ -286,16 +308,10 @@ static BOOL _alwaysUseMainBundle = NO;
 
 	self.ratingAlert = alertView;
     [alertView show];
-
-    id <AppiraterDelegate> delegate = _delegate;
-    if (delegate && [delegate respondsToSelector:@selector(appiraterDidDisplayAlert:)]) {
-             [delegate appiraterDidDisplayAlert:self];
-    }
 }
 
-- (void)showRatingAlert
-{
-  [self showRatingAlert:true];
+- (void)showCustomRatingAlert:(BOOL)displayRateLaterButton {
+    [self.customRatingAlert show:displayRateLaterButton];
 }
 
 // is this an ok time to show the alert? (regardless of whether the rating conditions have been met)
@@ -654,31 +670,45 @@ static BOOL _alwaysUseMainBundle = NO;
 }
 
 - (void)alertView:(UIAlertView *)alertView didDismissWithButtonIndex:(NSInteger)buttonIndex {
+	switch (buttonIndex) {
+		case 0:
+            [self act:kAppiraterActionNotRate];
+			break;
+		case 1:
+            [self act:kAppiraterActionRate];
+            break;
+		case 2:
+            [self act:kAppiraterActionRemindLater];
+            break;
+		default:
+			break;
+	}
+}
+
+- (void)act:(AppiraterAction)action {
 	NSUserDefaults *userDefaults = [NSUserDefaults standardUserDefaults];
     
     id <AppiraterDelegate> delegate = _delegate;
 	
-	switch (buttonIndex) {
-		case 0:
-		{
+    switch (action) {
+        case kAppiraterActionNotRate: {
 			// they don't want to rate it
 			[userDefaults setBool:YES forKey:kAppiraterDeclinedToRate];
 			[userDefaults synchronize];
 			if(delegate && [delegate respondsToSelector:@selector(appiraterDidDeclineToRate:)]){
 				[delegate appiraterDidDeclineToRate:self];
 			}
-			break;
-		}
-		case 1:
-		{
+            break;
+        }
+        case kAppiraterActionRate: {
 			// they want to rate it
 			[Appirater rateApp];
 			if(delegate&& [delegate respondsToSelector:@selector(appiraterDidOptToRate:)]){
 				[delegate appiraterDidOptToRate:self];
 			}
 			break;
-		}
-		case 2:
+        }
+        case kAppiraterActionRemindLater: {
 			// remind them later
 			[userDefaults setDouble:[[NSDate date] timeIntervalSince1970] forKey:kAppiraterReminderRequestDate];
 			[userDefaults synchronize];
@@ -686,9 +716,14 @@ static BOOL _alwaysUseMainBundle = NO;
 				[delegate appiraterDidOptToRemindLater:self];
 			}
 			break;
-		default:
-			break;
-	}
+        }
+        default:
+            break;
+    }
+}
+
++ (void)ratingAct:(AppiraterAction)action {
+    [[Appirater sharedInstance] act:action];
 }
 
 //Delegate call from the StoreKit view.

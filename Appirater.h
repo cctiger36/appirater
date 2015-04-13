@@ -36,6 +36,7 @@
 
 #import <Foundation/Foundation.h>
 #import "AppiraterDelegate.h"
+#import "AppiraterCustomRatingAlertDelegate.h"
 #import <StoreKit/StoreKit.h>
 
 extern NSString *const kAppiraterFirstUseDate;
@@ -45,6 +46,12 @@ extern NSString *const kAppiraterCurrentVersion;
 extern NSString *const kAppiraterRatedCurrentVersion;
 extern NSString *const kAppiraterDeclinedToRate;
 extern NSString *const kAppiraterReminderRequestDate;
+
+typedef NS_ENUM(NSInteger, AppiraterAction) {
+    kAppiraterActionRate,
+    kAppiraterActionNotRate,
+    kAppiraterActionRemindLater,
+};
 
 /*!
  Your localized app's name.
@@ -183,6 +190,11 @@ extern NSString *const kAppiraterReminderRequestDate;
 + (void)closeModal;
 
 /*!
+ For custom alert.
+*/
++ (void)ratingAct:(AppiraterAction)action;
+
+/*!
  Asks Appirater if the user has declined to rate;
 */
 - (BOOL)userHasDeclinedToRate;
@@ -294,6 +306,8 @@ extern NSString *const kAppiraterReminderRequestDate;
  in your main bundle.  Default is NO.
  */
 + (void)setAlwaysUseMainBundle:(BOOL)useMainBundle;
+
++ (void)setCustomRatingAlert:(id<AppiraterCustomRatingAlertDelegate>)alert;
 
 @end
 
